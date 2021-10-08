@@ -1,5 +1,6 @@
 import { createContext, ReactNode, useState } from 'react'
 import Router from 'next/router'
+import { setCookie } from 'nookies'
 
 import { api } from '../services/api'
 
@@ -48,6 +49,15 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
       const { permissions, refreshToken, roles, token } = data
 
+      setCookie(undefined, 'nextauth.token', token, {
+        maxAge: 60 * 60 * 24 * 30, // 30 days
+        path: '/'
+      })
+      setCookie(undefined, 'nextauth.refreshToken', refreshToken, {
+        maxAge: 60 * 60 * 24 * 30, // 30 days
+        path: '/'
+      })
+
      setUser({
       email,
       permissions,
@@ -59,8 +69,6 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       console.log(error)
     }
   }
-
-  console.log(user)
 
   return (
     <AuthContext.Provider value={{
