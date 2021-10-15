@@ -1,6 +1,7 @@
-import { createContext, ReactNode, useState } from 'react'
+import { createContext, ReactNode, useEffect, useState } from 'react'
 import Router from 'next/router'
-import { setCookie } from 'nookies'
+import { setCookie, parseCookies, destroyCookie } from 'nookies'
+import { AxiosError } from 'axios'
 
 import { api } from '../services/api'
 
@@ -32,6 +33,7 @@ type AuthContextProps = {
   user: UserProps | undefined
   isAuthenticated: boolean
   signIn: ({email, password}: SignInCredenntials) => Promise<void>
+  signOut: () => void
 }
 
 export const AuthContext = createContext({} as AuthContextProps)
@@ -40,12 +42,31 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [user, setUser] = useState<UserProps>()
   const isAuthenticated = !!user
 
+  useEffect(() => {
+    const { 'nextauth.token': token } = parseCookies()
+
+    if (token) {
+      api.get('/me')
+        .then(response => {
+          const { email, permissions, roles } = response.data
+          setUser({
+            email,
+            permissions,
+            roles
+          })
+        })
+        .catch(() => {
+          signOut()
+        })
+    }
+  }, [])
+
   const signIn = async ({ email, password }: SignInCredenntials):Promise<void> => {
     try {
-      const { data } = await api.post('/sessions', {
+      const { data }: ResponseProps = await api.post('/sessions', {
         email,
         password
-      }) as ResponseProps
+      })
 
       const { permissions, refreshToken, roles, token } = data
 
@@ -58,23 +79,39 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         path: '/'
       })
 
-     setUser({
-      email,
-      permissions,
-      roles
-     })
+      setUser({
+        email,
+        permissions,
+        roles
+      })
 
-     Router.push('/dashboard')
+      if (api.defaults.headers) {
+        api.defaults.headers['Authorization'] = `Bearer ${token}`
+      }
+
+      Router.push('/dashboard')
     } catch (error) {
-      console.log(error)
+      const err = error as AxiosError
+
+      if (err) {
+        console.log(err.response?.status)
+      }
     }
+  }
+
+  const signOut = () => {
+    destroyCookie(undefined, 'nextauth.token')
+    destroyCookie(undefined, 'nextauth.refreshToken')
+
+    Router.push('/')
   }
 
   return (
     <AuthContext.Provider value={{
       user,
       isAuthenticated,
-      signIn
+      signIn,
+      signOut
     }}>
       { children }
     </AuthContext.Provider>
