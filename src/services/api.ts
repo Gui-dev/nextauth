@@ -34,6 +34,7 @@ export const setupAPIClient = ({ ctx = undefined }: setupAPIClientProps) => {
     return response
   }, (error: AxiosError) => {
     if (error.response?.status === 401) {
+      // @ts-ignore
       if (error.response.data?.code === 'token.expired') {
         cookies = parseCookies(ctx)
         const { 'nextauth.refreshToken': refreshToken } = cookies
