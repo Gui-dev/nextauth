@@ -38,6 +38,8 @@ type AuthContextProps = {
 
 export const AuthContext = createContext({} as AuthContextProps)
 
+let authChannel: BroadcastChannel
+
 export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [user, setUser] = useState<UserProps>()
   const isAuthenticated = !!user
@@ -58,6 +60,22 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         .catch(() => {
           signOut()
         })
+    }
+  }, [])
+
+  useEffect(() => {
+    authChannel = new BroadcastChannel('auth')
+    authChannel.onmessage = (message) => {
+      switch (message.data) {
+        case 'signOut':
+          signOut()
+          break
+          case 'signIn':
+            Router.push('/dashboard')
+            break
+        default:
+          break
+      }
     }
   }, [])
 
@@ -90,6 +108,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       }
 
       Router.push('/dashboard')
+      authChannel.postMessage('signIn')
     } catch (error) {
       const err = error as AxiosError
 
@@ -102,6 +121,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const signOut = () => {
     destroyCookie(undefined, 'nextauth.token')
     destroyCookie(undefined, 'nextauth.refreshToken')
+
+    authChannel.postMessage('signOut')
 
     Router.push('/')
   }
